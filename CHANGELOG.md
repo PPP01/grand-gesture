@@ -1,5 +1,10 @@
 # Change Log
 
+## [1.0.4](https://github.com/david-04/grand-gesture/releases/tag/v1.0.4) (2025-12-14)
+
+- Added retries to avoid gestures occasionally failing after a tab has been reactivated from sleep mode
+- Fixed a styling issue that caused a wrong gesture tool tip font size on some websites
+
 ## [1.0.3](https://github.com/david-04/grand-gesture/releases/tag/v1.0.3) (2025-07-16)
 
 - Fixed an issue that caused the "switch to left/right/first/last tab" action to fail

@@ -1100,7 +1100,6 @@ var sub = {
                                     ctm: true,
                                     appjs: appType[_appname],
                                 });
-                                console.log(response);
                             },
                             injectImmediately: true,
                             target: { tabId: await sub.getCurrentTabId() },
@@ -1306,7 +1305,6 @@ var sub = {
                     value: sue.apps.enable,
                     appjs: appType[_appname],
                 });
-                console.log(response);
             },
             injectImmediately: true,
             target: { tabId: sub.curTab.id },
@@ -1478,10 +1476,8 @@ var sub = {
             for (let i = 0; i < sub.curWin.tabs.length; i++) {
                 ids.push(sub.curWin.tabs[i].id);
             }
-            console.log({ curTab: sub.curTab, ids, pretab: sub.cons.pretab });
             for (let i = 1; i < sub.cons.pretab.length; i++) {
                 if (sub.cons.pretab[i].tabId !== curTabId && ids.includes(sub.cons.pretab[i].tabId)) {
-                    console.log(`switching from ${curTabId} to ${sub.cons.pretab[i].tabId}`);
                     await chrome.tabs.update(sub.cons.pretab[i].tabId, { active: true });
                     break;
                 }
@@ -2059,7 +2055,6 @@ var sub = {
                         ? sub.showNotif("basic", sub.getI18n("notif_title"), sub.getI18n("notif_con_bkadd"))
                         : null;
                 }
-                console.log("Bookmarks after:", await chrome.bookmarks.search({}));
             });
         },
         copylnkurl: () => {
@@ -4002,12 +3997,16 @@ var sub = {
             console.log("-->", message);
         }
         const sendResponse = async (...params) => {
-            if (params[0].type && 1 === params.length) {
+            if (params[0]?.type && 1 === params.length) {
                 console.log("<--", { type: params[0].type, message: params[0] });
             } else {
                 console.log("<--", ...params);
             }
-            await _sendResponse(...params);
+            try {
+                await _sendResponse(...params);
+            } catch (error) {
+                console.error("Failed to send response:", error);
+            }
         };
         sub.message = message;
         const getConf = () => {
@@ -4335,7 +4334,6 @@ var sub = {
                         });
                         const clipboardContent = result[0]?.result;
                         if (clipboardContent) {
-                            console.log("sending clipboard content:", clipboardContent);
                             chrome.tabs.sendMessage(
                                 sender.tab.id,
                                 { type: "actionPaste", value: { paste: clipboardContent } },
@@ -4410,7 +4408,6 @@ var sub = {
                 });
             },
             clear: async (message, sender, sendResponse) => {
-                console.log({ action: "clear", autoreload: sub.cons.autoreload[sender.tab.id] });
                 if (sub.cons.autoreload && sub.cons.autoreload[sender.tab.id]) {
                     await new Promise(resolve => {
                         sub.checkPermission(["alarms"], undefined, async () => {

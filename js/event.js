@@ -30,18 +30,14 @@ var sue = {
         enable: false,
     },
     resetConsoleLog: () => {
-        if (devMode) {
-        } else {
-            console.log = () => {
-                return;
-            };
+        if (!devMode) {
+            console.log = () => {};
         }
     },
     init: () => {
         !devMode && (console.log = () => {});
 
         if (config.general.exclusion?.exclusion && sue.exclusionMatch(config.general.exclusion.exclusiontype)) {
-            console.log("dddd");
             return;
         }
 
@@ -64,7 +60,6 @@ var sue = {
             document.addEventListener("touchend", this.handleEvent, false);
         }
         if (config.general.fnswitch.fnmges || config.general.fnswitch.fnrges || config.general.fnswitch.fnwges) {
-            console.log("initHandle");
             document.addEventListener("mousedown", this.handleEvent, false);
             document.addEventListener("mouseup", this.handleEvent, false);
             document.addEventListener("mousemove", this.handleEvent, false);
@@ -154,13 +149,11 @@ var sue = {
                     }
                 }
                 if (sue.inDrg && config.drg.settings.clickcancel) {
-                    console.log("cancel");
                     sue.break = true;
                     sue.stopMges(e);
                 }
                 break;
             case "keydown":
-                // console.log(e.keyCode);
                 if (!editMode && config.general.fnswitch.fnksa) {
                     sue.ksa.action(e);
                 }
@@ -180,7 +173,6 @@ var sue = {
                 }
                 //fix rges mouseup bug
                 if (!extDisable && config.general.fnswitch.fnrges) {
-                    console.log(e.buttons);
                     sue.cons.rges_btn = e.button;
                 }
                 break;
@@ -206,7 +198,6 @@ var sue = {
                     (e.buttons == 1 || e.buttons == 2) &&
                     (e.button == 0 || e.button == 2)
                 ) {
-                    console.log(e.button + "/" + e.buttons + "/" + sue.cons.rges_btn);
                     if (e.button != sue.cons.rges_btn) {
                         break;
                     } //fix mouseup bug
@@ -389,7 +380,6 @@ var sue = {
         const patterns = config.general.exclusion[type];
         const url = `${window.location.host}${window.location.pathname.replace(/\/$/, "")}`;
         const regexes = patterns.map(pattern => new RegExp("^" + pattern.replace(/\*/g, ".*") + "$"));
-        console.log(regexes);
         const exclusion = regexes.some(regex => regex.test(url));
         return type === "black" ? exclusion : !exclusion;
     },
@@ -579,8 +569,6 @@ var sue = {
         sue._dirArray = "";
     },
     lineDrawReady: (e, type) => {
-        console.log("lineDrawReady");
-        console.log(e.target);
         //disable drag ,when draggable=true
         if (config[type].settings.draggable && e.target.getAttribute && e.target.getAttribute("draggable") == "true") {
             return;
@@ -669,7 +657,6 @@ var sue = {
                 sue.selEle.txt = e.target.value.substring(e.target.selectionStart, e.target.selectionEnd);
             }
         }
-        console.log(e.target);
         sue.selEle.lnk = e.href || e.target.href;
         sue.selEle.img = sue.selEle.img ? sue.selEle.img : e.target.src;
         sue.selEle.str = e.target.innerText;
@@ -788,7 +775,6 @@ var sue = {
         sue._lastY = e.clientY;
     },
     UI: style => {
-        console.log(style);
         var domui = sue.document.querySelector("div[data-suui=uibox][data-sustyle=" + style + "]");
         if (!domui) {
             domui = document.createElement("div");
@@ -944,6 +930,9 @@ var sue = {
                 }
             }
             var _spanTip = sue.domCreate("span", null, null, null, null, confOBJ.tip);
+            if (config[sue.drawType[0]]?.ui?.tip?.width) {
+                _spanTip.style.fontSize = config[sue.drawType[0]].ui.tip.width + "px";
+            }
             _dom.appendChild(_spanTip);
             _dom.style.cssText += "display:inline-block;";
         } else {
@@ -954,9 +943,12 @@ var sue = {
         if (!config[sue.drawType[0]].ui.note.enable) {
             return;
         }
-        var uidom = sue.document.querySelector(
+        var uidom = sue?.document?.querySelector(
             "div[data-suui=uibox][data-sustyle=" + config[sue.drawType[0]].ui.note.style + "]"
         );
+        if (!uidom) {
+            return;
+        }
         var _dom = uidom.querySelector("div[data-suui=note]");
         if (!_dom) {
             _dom = document.createElement("div");
@@ -989,10 +981,12 @@ var sue = {
         if (!config[sue.drawType[0]].ui.allaction.enable) {
             return;
         }
-        var uidom = sue.document.querySelector(
+        var uidom = sue?.document?.querySelector(
             "div[data-suui=uibox][data-sustyle=" + config[sue.drawType[0]].ui.allaction.style + "]"
         );
-
+        if (!uidom) {
+            return;
+        }
         var _dom = uidom.querySelector("div[data-suui=allaction]");
         if (!_dom) {
             _dom = document.createElement("div");
@@ -1033,7 +1027,11 @@ var sue = {
                     );
                     _allAction.appendChild(_img);
                 }
-                _allAction.appendChild(sue.domCreate("span", null, null, null, null, "  " + confOBJ.allaction[i].tip));
+                const _spanTip = sue.domCreate("span", null, null, null, null, "  " + confOBJ.allaction[i].tip);
+                if (config[sue.drawType[0]]?.ui?.tip?.width) {
+                    _spanTip.style.fontSize = config[sue.drawType[0]].ui.tip.width + "px";
+                }
+                _allAction.appendChild(_spanTip);
                 _dom.appendChild(_allAction);
             }
             _dom.style.cssText += "display:inline-block;";
@@ -1103,7 +1101,6 @@ var sue = {
                     domUIs[i].style.cssText += "left:" + (e.clientX + 10) + "px;" + "top:" + (e.clientY + 30) + "px";
                     break;
                 case "center":
-                    console.log("center");
                     domUIs[i].style.cssText += "left:" + domWidth + "px;" + "top:" + domHeight + "px;";
                     break;
                 case "top":
@@ -1137,7 +1134,6 @@ var sue = {
         sue.drawing = false;
     },
     stopMges: e => {
-        console.log("stop");
         if (sue.break) {
             sue.clearUI();
             sue.break = false;
@@ -1167,38 +1163,37 @@ var sue = {
         sue._dirArray = "";
         sue.drawing = false;
     },
-    sendDir: (dir, dirType, e) => {
-        var returnValue;
-        chrome.runtime.sendMessage(
-            extID,
-            {
-                type: dirType,
-                direct: dir,
-                drawType: sue.drawType,
-                selEle: sue.selEle,
-            },
-            response => {
-                returnValue = response;
-                sue.getedConf = returnValue;
-                if (!response) {
-                    return false;
+    sendDir: async (dir, dirType, e) => {
+        let response = undefined;
+        for (let index = 0; index < 50 && !response; index++) {
+            try {
+                response = await chrome.runtime.sendMessage(extID, {
+                    type: dirType,
+                    direct: dir,
+                    drawType: sue.drawType,
+                    selEle: sue.selEle,
+                });
+                sue.getedConf = response;
+                if (response) {
+                    switch (response.type) {
+                        case "tip":
+                            sue.ui_tip(response, e);
+                            sue.ui_note(response, e);
+                            sue.ui_allaction(response, e);
+                            sue.uiPos(e);
+                            break;
+                        case "action":
+                            break;
+                    }
+                    break;
                 }
-                switch (response.type) {
-                    case "tip":
-                        sue.ui_tip(response, e);
-                        sue.ui_note(response, e);
-                        sue.ui_allaction(response, e);
-                        sue.uiPos(e);
-                        break;
-                    case "action":
-                        break;
-                }
+            } catch {
+                await new Promise(resolve => setTimeout(resolve, 10));
             }
-        );
+        }
     },
 };
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log(message);
     if (message.type == "set_confirm") {
         if (confirm(chrome.i18n.getMessage("tip_closemulticonfirm"))) {
             sendResponse({ type: message.type, message: true });
@@ -1220,7 +1215,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 sue.selEle.txt = e.target.value.substring(e.target.selectionStart, e.target.selectionEnd);
             }
         }
-        console.log(sue.selEle);
         sendResponse({ type: "action_" + message.type, selEle: sue.selEle });
     } else if (message.type == "extdisable") {
         extDisable = true;
