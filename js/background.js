@@ -5150,8 +5150,10 @@ async function main() {
                             sub.saveConf();
                         }
                     }
-                    const items = await chrome.storage.sync.get();
-                    if (devMode || (items.general && items.general.settings.notif)) {
+                    // Use the already-loaded in-memory config instead of re-reading
+                    // storage.sync, which can be empty/unavailable (e.g. in Brave) and
+                    // would then silently suppress the update notification.
+                    if (devMode || config.general?.settings?.notif) {
                         var notif = {
                             type: "list",
                             title: sub.getI18n("notif_title_update"),
