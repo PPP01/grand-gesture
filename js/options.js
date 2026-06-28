@@ -2482,6 +2482,12 @@ const suo = {
     initListItem: type => {
         console.log(type);
         domOBJ = document.querySelector(".ul_" + type);
+        // Some toggleable features have no ".ul_<type>" list (e.g. "menus", whose
+        // list is ".ul_menuentry" and is rendered separately). Skip those instead
+        // of crashing the whole options page.
+        if (!domOBJ) {
+            return;
+        }
         domOBJ.textContent = "";
         var confOBJ, eleOBJ, actionType;
         switch (type) {
