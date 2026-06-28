@@ -1624,11 +1624,9 @@ var sub = {
             if (!host) {
                 return;
             }
-            if (target.match === "default") {
-                sub.showNotif("basic", sub.getI18n("ext_name"), sub.getI18n("menupick_default"));
-                return;
-            }
             const glob = "*" + host + "*";
+            // A string match ("default"/"manual") is replaced by a pattern array
+            // so the menu becomes site-specific for the chosen host.
             if (!Array.isArray(target.match)) {
                 target.match = [];
             }
