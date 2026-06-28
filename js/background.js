@@ -1298,27 +1298,13 @@ var sub = {
     // Run user-provided JavaScript in a tab. Prefers the userScripts API, which
     // executes in a world that is NOT bound by the page's Content-Security-Policy
     // (unlike eval() in the MAIN world), so custom scripts also work on strict-CSP
-    // sites (e.g. Brave Search, GitHub). chrome.userScripts is undefined / throws
-    // until the user enables "Allow user scripts" for the extension (Chrome/Brave
-    // 138+: per-extension toggle on the details page; earlier: developer mode),
-    // and userScripts.execute() requires Chrome 135+. Falls back to the previous
-    // eval-in-MAIN-world injection otherwise (still works on non-strict pages).
+    // sites (e.g. Brave Search, GitHub). userScripts.execute() requires Chrome 135+
+    // and the "Allow user scripts" toggle (Chrome/Brave 138+: per-extension toggle
+    // on the details page; earlier: developer mode). When it is unavailable we show
+    // a hint and fall back to the previous eval-in-MAIN-world injection (which still
+    // works on non-strict pages).
     runUserScript: async (tabId, code) => {
-        // Detect availability the way Chrome recommends: calling a userScripts
-        // method throws when the API is present but not enabled. Checking only the
-        // namespace / `typeof execute` is not enough — Brave keeps chrome.userScripts
-        // defined with the toggle off and only rejects at execute() time, which
-        // would otherwise look like a generic failure and skip the hint.
-        let available = false;
-        try {
-            if (chrome.userScripts && typeof chrome.userScripts.execute === "function") {
-                await chrome.userScripts.getScripts();
-                available = true;
-            }
-        } catch {
-            available = false;
-        }
-        if (available) {
+        if (chrome.userScripts && typeof chrome.userScripts.execute === "function") {
             try {
                 await chrome.userScripts.execute({
                     target: { tabId },
@@ -1328,16 +1314,16 @@ var sub = {
                 });
                 return;
             } catch (error) {
-                console.log("userScripts.execute failed, falling back to eval:", error);
+                // Reaching here almost always means the "Allow user scripts" toggle
+                // is off: Brave keeps chrome.userScripts defined and only rejects at
+                // execute() time, so we cannot reliably pre-detect it — treat any
+                // failure as "not enabled".
+                console.log("userScripts.execute failed (user scripts likely disabled):", error);
             }
-        } else if (!sub.cons.userScriptsHintShown) {
-            // Show the hint only once per service-worker lifetime to avoid spam.
-            sub.cons.userScriptsHintShown = true;
-            sub.showNotif("basic", sub.getI18n("ext_name"), sub.getI18n("notif_userscripts_disabled"));
         }
-        // Fallback: eval in the MAIN world. Subject to the page CSP, so it fails on
-        // strict-CSP sites, but preserves behaviour everywhere else and on browsers
-        // without the userScripts API.
+        // API missing or execute() rejected: tell the user how to enable it, then
+        // fall back to eval in the MAIN world (works on pages without a strict CSP).
+        sub.showUserScriptsHint(tabId);
         await chrome.scripting.executeScript({
             args: [code],
             func: script => eval(script),
@@ -1345,6 +1331,39 @@ var sub = {
             target: { tabId },
             world: chrome.scripting.ExecutionWorld.MAIN,
         });
+    },
+    // Show a visible, CSP-safe hint that user scripts must be enabled. Rendered as
+    // an in-page banner (DOM only, no eval/inline-script, so it is not blocked by a
+    // strict CSP) because OS notifications are easily suppressed and easy to miss.
+    // Shown once per service-worker lifetime to avoid stacking on repeated triggers.
+    showUserScriptsHint: async tabId => {
+        if (sub.cons.userScriptsHintShown) {
+            return;
+        }
+        sub.cons.userScriptsHintShown = true;
+        const message = sub.getI18n("notif_userscripts_disabled");
+        try {
+            await chrome.scripting.executeScript({
+                target: { tabId },
+                args: [message],
+                func: msg => {
+                    const banner = document.createElement("div");
+                    banner.textContent = msg;
+                    banner.style.cssText =
+                        "position:fixed;top:16px;right:16px;z-index:2147483647;max-width:360px;" +
+                        "padding:12px 16px;background:#222;color:#fff;border-radius:8px;" +
+                        "font:14px/1.45 system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.4);" +
+                        "cursor:pointer;";
+                    banner.addEventListener("click", () => banner.remove());
+                    (document.body || document.documentElement).appendChild(banner);
+                    setTimeout(() => banner.remove(), 10000);
+                },
+            });
+        } catch (error) {
+            // Last resort if the page cannot be scripted: OS notification.
+            console.log("Could not show in-page user-scripts hint:", error);
+            sub.showNotif("basic", sub.getI18n("ext_name"), message);
+        }
     },
     initAppconf: appname => {
         if (!config.apps) {
