@@ -1297,7 +1297,12 @@ var sub = {
         // it. JSON.stringify keeps the injected literal safe.
         const g = gesture || {};
         const context = { x: g.x || 0, y: g.y || 0, pageX: g.pageX || 0, pageY: g.pageY || 0 };
-        const finalCode = `const gesture = Object.freeze(${JSON.stringify(context)});\n${code}`;
+        // Wrap in an async IIFE so every run gets a fresh scope. userScripts.execute
+        // injects into the same persistent USER_SCRIPT world, so a top-level
+        // `const gesture` (or any top-level declaration in the user's own code)
+        // would throw "already declared" on the second run. async also lets user
+        // code use top-level await.
+        const finalCode = `(async function () {\nconst gesture = Object.freeze(${JSON.stringify(context)});\n${code}\n})();`;
         if (chrome.userScripts && typeof chrome.userScripts.execute === "function") {
             try {
                 await chrome.userScripts.execute({
