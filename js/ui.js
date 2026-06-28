@@ -233,7 +233,7 @@ var menuModel = {
         "about",
     ],
     fnswitch: ["stnm_function"],
-    general: ["setting", /*"fnswitch",*/ "searchmgr", "scriptmgr", "linux", "exclusion", "per", "conf"],
+    general: ["setting", /*"fnswitch",*/ "searchmgr", "scriptmgr", "linux", "exclusion", "per", "conf", "menumgr"],
     mges: ["setting", "ui", "gesmgr"],
     sdrg: ["setting", "tsdrg", "lsdrg", "isdrg"],
     drg: ["setting", "ui", "tdrg", "ldrg", "idrg"],

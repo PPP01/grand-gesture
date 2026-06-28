@@ -40,6 +40,7 @@ const suo = {
             [9, 1],
             [10, 2],
             [12, 1],
+            [1, 7],
         ],
     },
     boxShowFrom: null,
@@ -52,7 +53,7 @@ const suo = {
             suo.init();
             suo.initMenu();
             suo.initI18n();
-            var itemArray = ["txtengine", "imgengine", "script"];
+            var itemArray = ["txtengine", "imgengine", "script", "menuentry"];
 
             var arrayFn = Object.getOwnPropertyNames(config.general.fnswitch);
             for (var i = 0; i < arrayFn.length; i++) {
@@ -1226,6 +1227,7 @@ const suo = {
         }
         if (
             (ele.dataset.id0 == "1" && ele.dataset.id1 == "2") ||
+            (ele.dataset.id0 == "1" && ele.dataset.id1 == "7") ||
             (ele.dataset.id0 == "2" && ele.dataset.id1 == "2") ||
             (ele.dataset.id0 == "4" && ele.dataset.id1 == "2") ||
             (ele.dataset.id0 == "4" && ele.dataset.id1 == "3") ||
@@ -2313,6 +2315,14 @@ const suo = {
                 };
                 actionType = type;
                 break;
+            case "menuentry":
+                confOBJ = (config.menus && config.menus[0] && config.menus[0].entries) || [];
+                eleOBJ = {
+                    setName: ["className"],
+                    setValue: ["item item_edit item_script item-" + type],
+                };
+                actionType = type;
+                break;
             case "tsdrg":
             case "lsdrg":
             case "isdrg":
@@ -2519,7 +2529,7 @@ const suo = {
                     setName: ["confid", "actiontype"],
                     setValue: [i, actionType ? actionType : type],
                 },
-                "txtengine imgengine script".indexOf(type) != -1
+                "txtengine imgengine script menuentry".indexOf(type) != -1
                     ? confOBJ[i].name
                     : confOBJ[i].mydes && confOBJ[i].mydes.type && confOBJ[i].mydes.value
                       ? confOBJ[i].mydes.value
@@ -2538,7 +2548,7 @@ const suo = {
             );
             liOBJ.appendChild(liName);
             liOBJ.appendChild(liDel);
-            if ("txtengine imgengine script pop ctm".indexOf(type) != -1) {
+            if ("txtengine imgengine script pop ctm menuentry".indexOf(type) != -1) {
             } else {
                 var dirOBJ = "";
                 var myDeg = { L: "0deg", U: "90deg", R: "180deg", D: "270deg" };
@@ -2861,9 +2871,19 @@ const suo = {
         var btnArrayDel = [suo.getI18n("btn_del"), suo.getI18n("btn_cancel"), suo.getI18n("btn_save")];
         if (
             type == "edit" &&
-            ["mges", "tdrg", "ldrg", "idrg", "pop", "ctm", "txtengine", "imgengine", "script", "touch"].contains(
-                actiontype
-            )
+            [
+                "mges",
+                "tdrg",
+                "ldrg",
+                "idrg",
+                "pop",
+                "ctm",
+                "txtengine",
+                "imgengine",
+                "script",
+                "touch",
+                "menuentry",
+            ].contains(actiontype)
         ) {
             btnArray = btnArrayDel;
         }
@@ -2872,6 +2892,8 @@ const suo = {
             domBoxTitle = suo.getI18n(type === "edit" ? "title_editengine" : "title_newengine");
         } else if (actionType === "script") {
             domBoxTitle = suo.getI18n(type === "edit" ? "title_newscript" : "title_newscript");
+        } else if (actionType === "menuentry") {
+            domBoxTitle = suo.getI18n(type === "edit" ? "title_editaction" : "title_newaction");
         }
         console.log(type);
         var boxOBJ = suo.initAPPbox(btnArray, [400, 230], domBoxTitle, "bg", actiontype);
@@ -2885,6 +2907,8 @@ const suo = {
             var newOBJ = {};
             if (["txtengine", "imgengine", "script"].contains(actionType)) {
                 newOBJ = { name: "none", content: "" };
+            } else if (actionType === "menuentry") {
+                newOBJ = { name: "", url: "", mode: "plain", suffix: "", icon: "" };
             } else {
                 !editDirect ? (newOBJ = { name: "none" }) : (newOBJ = { name: "none", direct: editDirect });
             }
@@ -2968,6 +2992,113 @@ const suo = {
                     //.querySelector("ul")
                     .appendChild(suo.domCreate2("div", "", null, null, null, suo.getI18n("n_content_search_engine")));
             }
+        } else if (actionType === "menuentry") {
+            console.log("menuentry");
+            //name
+            domContent.appendChild(
+                suo.domCreate2(
+                    "label",
+                    { setName: ["className"], setValue: ["box-label"] },
+                    null,
+                    null,
+                    null,
+                    suo.getI18n("menu_name")
+                )
+            );
+            domContent.appendChild(
+                suo.domCreate2("input", {
+                    setName: ["className", "type", "value"],
+                    setValue: ["box_text menu_field_name", "text", !confOBJ.name ? "" : confOBJ.name],
+                })
+            );
+            domContent.appendChild(suo.domCreate2("br"));
+            //url
+            domContent.appendChild(
+                suo.domCreate2(
+                    "label",
+                    { setName: ["className"], setValue: ["box-label"] },
+                    null,
+                    null,
+                    null,
+                    suo.getI18n("menu_url")
+                )
+            );
+            domContent.appendChild(
+                suo.domCreate2("input", {
+                    setName: ["className", "type", "value"],
+                    setValue: ["box_text menu_field_url", "text", !confOBJ.url ? "" : confOBJ.url],
+                })
+            );
+            domContent.appendChild(suo.domCreate2("br"));
+            //mode
+            domContent.appendChild(
+                suo.domCreate2(
+                    "label",
+                    { setName: ["className"], setValue: ["box-label"] },
+                    null,
+                    null,
+                    null,
+                    suo.getI18n("menu_mode")
+                )
+            );
+            var modeSelect = suo.domCreate2("select", {
+                setName: ["className"],
+                setValue: ["box_select menu_field_mode"],
+            });
+            var modeOptions = ["plain", "plus", "slug"];
+            for (var mi = 0; mi < modeOptions.length; mi++) {
+                modeSelect.appendChild(
+                    suo.domCreate2(
+                        "option",
+                        {
+                            setName: ["value"],
+                            setValue: [modeOptions[mi]],
+                        },
+                        null,
+                        null,
+                        null,
+                        modeOptions[mi]
+                    )
+                );
+            }
+            modeSelect.value = confOBJ.mode || "plain";
+            domContent.appendChild(modeSelect);
+            domContent.appendChild(suo.domCreate2("br"));
+            //suffix
+            domContent.appendChild(
+                suo.domCreate2(
+                    "label",
+                    { setName: ["className"], setValue: ["box-label"] },
+                    null,
+                    null,
+                    null,
+                    suo.getI18n("menu_suffix")
+                )
+            );
+            domContent.appendChild(
+                suo.domCreate2("input", {
+                    setName: ["className", "type", "value"],
+                    setValue: ["box_text box_destext menu_field_suffix", "text", !confOBJ.suffix ? "" : confOBJ.suffix],
+                })
+            );
+            domContent.appendChild(suo.domCreate2("br"));
+            //icon
+            domContent.appendChild(
+                suo.domCreate2(
+                    "label",
+                    { setName: ["className"], setValue: ["box-label"] },
+                    null,
+                    null,
+                    null,
+                    suo.getI18n("menu_icon")
+                )
+            );
+            domContent.appendChild(
+                suo.domCreate2("input", {
+                    setName: ["className", "type", "value"],
+                    setValue: ["box_text box_destext menu_field_icon", "text", !confOBJ.icon ? "" : confOBJ.icon],
+                })
+            );
         } else if (actionArray.contains(actionType)) {
             var actionBox = suo.domCreate2("div", {
                 setName: ["className"],
@@ -3649,7 +3780,13 @@ const suo = {
                 return;
             }
         }
-        if (confArray[1] == "engine") {
+        if (suo.getDataset(e, "actiontype", "value") == "menuentry") {
+            confOBJ.name = dom.querySelector(".box_content .menu_field_name").value;
+            confOBJ.url = dom.querySelector(".box_content .menu_field_url").value;
+            confOBJ.mode = dom.querySelector(".box_content .menu_field_mode").value;
+            confOBJ.suffix = dom.querySelector(".box_content .menu_field_suffix").value;
+            confOBJ.icon = dom.querySelector(".box_content .menu_field_icon").value;
+        } else if (confArray[1] == "engine") {
             var _name = dom.querySelectorAll(".box_content input[type=text]")[0].value;
             var _content = suo.fixURL(dom.querySelector(".box_content textarea").value);
             confOBJ.name = _name;
@@ -4423,6 +4560,10 @@ const suo = {
             confOBJ = confOBJ[confArray[i]];
         }
         var confid = confOBJ.length;
+        if (confArray[0] == "menus") {
+            suo.itemEdit(confobj, confid, "add", null, "menuentry");
+            return;
+        }
         if (["engine", "script"].contains(confArray[1])) {
             suo.itemEdit(confobj, confid, "add", null, confArray[2]);
             return;

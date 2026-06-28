@@ -860,6 +860,15 @@
     "menu_autosave": {
         "message": "Auto Save Settings"
     },
+    "menu_icon": {
+        "message": "Icon (built-in name, URL, or empty for favicon)"
+    },
+    "menu_mode": {
+        "message": "Encoding"
+    },
+    "menu_name": {
+        "message": "Name"
+    },
     "menu_opts": {
         "message": "Options"
     },
@@ -871,6 +880,15 @@
     },
     "menu_save": {
         "message": "Save Settings"
+    },
+    "menu_suffix": {
+        "message": "URL suffix"
+    },
+    "menu_url": {
+        "message": "URL (use %s for the search term)"
+    },
+    "menumgr": {
+        "message": "Menus"
     },
     "menuplus_exit": {
         "message": "Exit"
@@ -1687,6 +1705,9 @@
     },
     "stnm_linux": {
         "message": "Linux/Mac Settings"
+    },
+    "stnm_menus": {
+        "message": "Search menu entries"
     },
     "stnm_per_pers": {
         "message": "Granted extension permissions"
