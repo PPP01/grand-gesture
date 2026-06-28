@@ -3045,7 +3045,7 @@ const suo = {
                 setName: ["className"],
                 setValue: ["box_select menu_field_mode"],
             });
-            var modeOptions = ["plain", "plus", "slug"];
+            var modeOptions = ["plain", "plus", "slug", "clipboard"];
             for (var mi = 0; mi < modeOptions.length; mi++) {
                 modeSelect.appendChild(
                     suo.domCreate2(
