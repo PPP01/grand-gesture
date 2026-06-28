@@ -54,7 +54,7 @@
             "matches": ["<all_urls>"]
         }
     ],
-    "permissions": ["tabs", "storage", "notifications", "contextMenus", "unlimitedStorage", "tts", "scripting"],
+    "permissions": ["tabs", "storage", "notifications", "contextMenus", "unlimitedStorage", "tts", "scripting", "userScripts"],
     "host_permissions": ["<all_urls>"],
     "optional_permissions": [
         "alarms",

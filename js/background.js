@@ -1295,6 +1295,51 @@ var sub = {
             message: txt,
         });
     },
+    // Run user-provided JavaScript in a tab. Prefers the userScripts API, which
+    // executes in a world that is NOT bound by the page's Content-Security-Policy
+    // (unlike eval() in the MAIN world), so custom scripts also work on strict-CSP
+    // sites (e.g. Brave Search, GitHub). chrome.userScripts is undefined / throws
+    // until the user enables "Allow user scripts" for the extension (Chrome/Brave
+    // 138+: per-extension toggle on the details page; earlier: developer mode),
+    // and userScripts.execute() requires Chrome 135+. Falls back to the previous
+    // eval-in-MAIN-world injection otherwise (still works on non-strict pages).
+    runUserScript: async (tabId, code) => {
+        let userScriptsApi = null;
+        try {
+            if (chrome.userScripts && typeof chrome.userScripts.execute === "function") {
+                userScriptsApi = chrome.userScripts;
+            }
+        } catch {
+            userScriptsApi = null;
+        }
+        if (userScriptsApi) {
+            try {
+                await userScriptsApi.execute({
+                    target: { tabId },
+                    js: [{ code }],
+                    world: "USER_SCRIPT",
+                    injectImmediately: true,
+                });
+                return;
+            } catch (error) {
+                console.log("userScripts.execute failed, falling back to eval:", error);
+            }
+        } else if (!sub.cons.userScriptsHintShown) {
+            // Show the hint only once per service-worker lifetime to avoid spam.
+            sub.cons.userScriptsHintShown = true;
+            sub.showNotif("basic", sub.getI18n("ext_name"), sub.getI18n("notif_userscripts_disabled"));
+        }
+        // Fallback: eval in the MAIN world. Subject to the page CSP, so it fails on
+        // strict-CSP sites, but preserves behaviour everywhere else and on browsers
+        // without the userScripts API.
+        await chrome.scripting.executeScript({
+            args: [code],
+            func: script => eval(script),
+            injectImmediately: true,
+            target: { tabId },
+            world: chrome.scripting.ExecutionWorld.MAIN,
+        });
+    },
     initAppconf: appname => {
         if (!config.apps) {
             config.apps = {};
@@ -2348,13 +2393,7 @@ var sub = {
         },
         script: async () => {
             var _script = sub.getConfValue("selects", "n_script");
-            await chrome.scripting.executeScript({
-                args: [config.general.script.script[_script].content],
-                func: script => eval(script),
-                injectImmediately: true,
-                target: { tabId: sub.curTab.id },
-                world: chrome.scripting.ExecutionWorld.MAIN,
-            });
+            await sub.runUserScript(sub.curTab.id, config.general.script.script[_script].content);
         },
         source: () => {
             var theTarget = sub.getConfValue("selects", "n_optype"),
@@ -4522,13 +4561,7 @@ var sub = {
         },
         jslist: {
             jsRun: async message => {
-                await chrome.scripting.executeScript({
-                    args: [config.general.script.script[message.value].content],
-                    func: script => eval(script),
-                    injectImmediately: true,
-                    target: { tabId: sub.curTab.id },
-                    world: chrome.scripting.ExecutionWorld.MAIN,
-                });
+                await sub.runUserScript(sub.curTab.id, config.general.script.script[message.value].content);
             },
         },
         appslist: {
