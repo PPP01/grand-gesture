@@ -1290,17 +1290,23 @@ var sub = {
     // and userScripts.execute() requires Chrome 135+. Falls back to the previous
     // eval-in-MAIN-world injection otherwise (still works on non-strict pages).
     runUserScript: async (tabId, code) => {
-        let userScriptsApi = null;
+        // Detect availability the way Chrome recommends: calling a userScripts
+        // method throws when the API is present but not enabled. Checking only the
+        // namespace / `typeof execute` is not enough — Brave keeps chrome.userScripts
+        // defined with the toggle off and only rejects at execute() time, which
+        // would otherwise look like a generic failure and skip the hint.
+        let available = false;
         try {
             if (chrome.userScripts && typeof chrome.userScripts.execute === "function") {
-                userScriptsApi = chrome.userScripts;
+                await chrome.userScripts.getScripts();
+                available = true;
             }
         } catch {
-            userScriptsApi = null;
+            available = false;
         }
-        if (userScriptsApi) {
+        if (available) {
             try {
-                await userScriptsApi.execute({
+                await chrome.userScripts.execute({
                     target: { tabId },
                     js: [{ code }],
                     world: "USER_SCRIPT",
