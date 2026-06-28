@@ -239,6 +239,8 @@ const actions = {
             { name: "mute", selects: ["n_mute"] },
             { name: "magnet" },
             { name: "showmenu", selects: ["n_menu"] },
+            { name: "pickmenu" },
+            { name: "assignmenu" },
         ],
         [
             //ag_exp

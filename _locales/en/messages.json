@@ -920,6 +920,24 @@
     "menumgr": {
         "message": "Menus"
     },
+    "menupick_added": {
+        "message": "Added to menu:"
+    },
+    "menupick_assign": {
+        "message": "Add this site to which menu?"
+    },
+    "menupick_default": {
+        "message": "This menu already applies to all sites."
+    },
+    "menupick_show": {
+        "message": "Choose a menu"
+    },
+    "assignmenu": {
+        "message": "Add current site to a menu"
+    },
+    "pickmenu": {
+        "message": "Choose a menu, then open it"
+    },
     "menuplus_exit": {
         "message": "Exit"
     },

@@ -1084,6 +1084,88 @@ function renderGestureMenu(data) {
     host.showPopover();
 }
 
+// Renders a small picker listing menu names at the cursor and reports the chosen
+// menu back to the background via chrome.runtime.sendMessage. Injected with
+// world: ISOLATED (the content-script world has chrome.runtime; unlike the MAIN
+// world used for renderGestureMenu). Used by the "assign site to menu" and
+// "pick a menu" gestures. `data` = { items:[{label,id}], x, y, action, query }.
+function renderMenuPicker(data) {
+    "use strict";
+    const existing = document.getElementById("ggMenuPicker");
+    if (existing) {
+        existing.remove();
+    }
+    const host = document.createElement("div");
+    host.id = "ggMenuPicker";
+    host.setAttribute("popover", "auto");
+    const styles = {
+        position: "fixed",
+        top: data.y - 10 + "px",
+        left: data.x - 10 + "px",
+        right: "auto",
+        bottom: "auto",
+        margin: "0",
+        padding: "0",
+        border: "none",
+        background: "transparent",
+        width: "auto",
+        height: "auto",
+        "max-width": "none",
+        "max-height": "none",
+        overflow: "visible",
+        visibility: "visible",
+    };
+    for (const prop in styles) {
+        host.style.setProperty(prop, styles[prop], "important");
+    }
+    const shadow = host.attachShadow({ mode: "closed" });
+    // A <style> element (not adoptedStyleSheets) avoids cross-realm issues in the
+    // isolated world.
+    const style = document.createElement("style");
+    style.textContent =
+        ".menu{all:initial;display:block;min-width:160px;background:#fff;border:3px solid #C1C1C1;" +
+        "border-radius:5px;box-shadow:2px 2px 5px rgba(0,0,0,.6);padding:1px;font:normal 13px Arial;color:#000;}" +
+        ".title{all:initial;display:block;font:bold 11px Arial;color:#888;padding:3px 5px;}" +
+        ".row{all:initial;display:block;font:normal 13px Arial;color:#000;padding:5px 8px;cursor:pointer;}" +
+        ".row:hover{background:#235BD9;color:#fff;}";
+    shadow.appendChild(style);
+    const menu = document.createElement("div");
+    menu.className = "menu";
+    if (data.title) {
+        const title = document.createElement("div");
+        title.className = "title";
+        title.textContent = data.title;
+        menu.appendChild(title);
+    }
+    for (const item of data.items) {
+        const row = document.createElement("div");
+        row.className = "row";
+        row.textContent = item.label;
+        row.addEventListener("click", () => {
+            try {
+                chrome.runtime.sendMessage({
+                    type: "menupick",
+                    action: data.action,
+                    menuId: item.id,
+                    query: data.query,
+                    x: data.x,
+                    y: data.y,
+                });
+            } catch (e) {}
+            host.hidePopover();
+        });
+        menu.appendChild(row);
+    }
+    shadow.appendChild(menu);
+    host.addEventListener("toggle", event => {
+        if (event.newState === "closed") {
+            host.remove();
+        }
+    });
+    document.documentElement.appendChild(host);
+    host.showPopover();
+}
+
 var sub = {
     getCurrentTabId: async () => {
         return sub.curTab?.id ?? (await chrome.tabs.query({ active: true, currentWindow: true }))?.[0]?.id;
@@ -1442,6 +1524,91 @@ var sub = {
         }
         sub.cons.faviconCache[host] = dataUri;
         return dataUri;
+    },
+    // Build a menu's entries (hrefs, icons, copy flag) and render the cursor menu
+    // in the tab. Shared by the showmenu action and the "pick a menu" callback.
+    renderMenuEntries: async (tabId, menu, query, x, y) => {
+        if (!tabId || !menu || !menu.entries || !menu.entries.length) {
+            return;
+        }
+        const entries = await Promise.all(
+            menu.entries.map(async entry => ({
+                name: entry.name,
+                href: sub.buildMenuHref(entry, query),
+                icon: await sub.resolveMenuIcon(entry),
+                copy: entry.mode === "clipboard",
+            }))
+        );
+        await chrome.scripting.executeScript({
+            target: { tabId },
+            world: chrome.scripting.ExecutionWorld.MAIN,
+            injectImmediately: true,
+            func: renderGestureMenu,
+            args: [{ entries, x: x || 0, y: y || 0, query }],
+        });
+    },
+    // Show the menu-name picker at the cursor (ISOLATED world so it can message
+    // back). `action` decides what the picked menu does: "assignsite" or "show".
+    showMenuPicker: async (action, title) => {
+        const menus = Array.isArray(config.menus) ? config.menus : defaultConf.menus || [];
+        if (!menus.length || !sub.curTab) {
+            return;
+        }
+        const items = menus.map(menu => ({ label: menu.name || menu.id, id: menu.id }));
+        const query = (sub.message?.selEle?.txt || "").trim().replace(/[\r\n]+/g, " ");
+        const gesture = sub.message?.gesture || {};
+        await chrome.scripting.executeScript({
+            target: { tabId: sub.curTab.id },
+            world: chrome.scripting.ExecutionWorld.ISOLATED,
+            injectImmediately: true,
+            func: renderMenuPicker,
+            args: [{ items, x: gesture.x || 0, y: gesture.y || 0, action, query, title }],
+        });
+    },
+    // Handle a click in the menu-name picker (sent from the page).
+    handleMenuPick: async (message, sender) => {
+        const tabId = sender?.tab?.id ?? sub.curTab?.id;
+        const url = sender?.tab?.url ?? sub.curTab?.url ?? "";
+        if (message.action === "assignsite") {
+            // Add the current host as a URL pattern to the chosen menu's match.
+            if (!Array.isArray(config.menus)) {
+                config.menus = JSON.parse(JSON.stringify(defaultConf.menus || []));
+            }
+            const target = config.menus.find(menu => menu.id === message.menuId);
+            if (!target) {
+                return;
+            }
+            let host;
+            try {
+                host = new URL(url).hostname;
+            } catch {
+                return;
+            }
+            if (!host) {
+                return;
+            }
+            if (target.match === "default") {
+                sub.showNotif("basic", sub.getI18n("ext_name"), sub.getI18n("menupick_default"));
+                return;
+            }
+            const glob = "*" + host + "*";
+            if (!Array.isArray(target.match)) {
+                target.match = [];
+            }
+            if (!target.match.includes(glob)) {
+                target.match.push(glob);
+            }
+            await sub.saveConf();
+            sub.showNotif(
+                "basic",
+                sub.getI18n("ext_name"),
+                sub.getI18n("menupick_added") + " " + host + " → " + (target.name || target.id)
+            );
+        } else if (message.action === "show") {
+            const menus = Array.isArray(config.menus) ? config.menus : defaultConf.menus || [];
+            const menu = menus.find(m => m.id === message.menuId);
+            await sub.renderMenuEntries(tabId, menu, message.query || "", message.x || 0, message.y || 0);
+        }
     },
     getId: async value => {
         var theId = [];
@@ -2747,22 +2914,17 @@ var sub = {
                 return;
             }
             const query = (sub.message?.selEle?.txt || "").trim().replace(/[\r\n]+/g, " ");
-            const entries = await Promise.all(
-                menu.entries.map(async entry => ({
-                    name: entry.name,
-                    href: sub.buildMenuHref(entry, query),
-                    icon: await sub.resolveMenuIcon(entry),
-                    copy: entry.mode === "clipboard",
-                }))
-            );
             const gesture = sub.message?.gesture || {};
-            await chrome.scripting.executeScript({
-                target: { tabId: sub.curTab.id },
-                world: chrome.scripting.ExecutionWorld.MAIN,
-                injectImmediately: true,
-                func: renderGestureMenu,
-                args: [{ entries, x: gesture.x || 0, y: gesture.y || 0, query }],
-            });
+            await sub.renderMenuEntries(sub.curTab.id, menu, query, gesture.x || 0, gesture.y || 0);
+        },
+        // Feature A: pick a menu, then add the current site's host to its match
+        // rule — builds the URL-pattern list without hand-editing globs.
+        assignmenu: async () => {
+            await sub.showMenuPicker("assignsite", sub.getI18n("menupick_assign"));
+        },
+        // Feature B: pick a menu first, then show its entries (selection kept).
+        pickmenu: async () => {
+            await sub.showMenuPicker("show", sub.getI18n("menupick_show"));
         },
         source: () => {
             var theTarget = sub.getConfValue("selects", "n_optype"),
@@ -4606,6 +4768,9 @@ var sub = {
                 break;
             case "getpers":
                 sub.initpers();
+                break;
+            case "menupick":
+                await sub.handleMenuPick(message, sender);
                 break;
             case "scroll":
                 sendResponse({ type: sub.cons.scroll.type, effect: sub.cons.scroll.effect });
