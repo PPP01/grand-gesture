@@ -667,6 +667,19 @@ const suo = {
                     suo.cons.currentMenu = +e.target.value;
                     suo.initMenuSection();
                 }
+                if (e.target.classList.contains("menu_import")) {
+                    var _imp = e.target.value;
+                    if (_imp && config.menus && config.menus[suo.cons.currentMenu]) {
+                        var _impParts = _imp.split(":");
+                        var _impMenu = config.menus[+_impParts[0]];
+                        var _impEntry = _impMenu && _impMenu.entries ? _impMenu.entries[+_impParts[1]] : null;
+                        if (_impEntry) {
+                            config.menus[suo.cons.currentMenu].entries.push(JSON.parse(JSON.stringify(_impEntry)));
+                            suo.saveConf();
+                            suo.initMenuSection();
+                        }
+                    }
+                }
                 if (e.target.classList.contains("menu_meta_name")) {
                     if (config.menus && config.menus[suo.cons.currentMenu]) {
                         config.menus[suo.cons.currentMenu].name = e.target.value;
@@ -1441,12 +1454,44 @@ const suo = {
         if (matchDom) {
             matchDom.value = Array.isArray(theMenu.match) ? theMenu.match.join(", ") : theMenu.match || "default";
         }
-        // (d) repoint the entries editor's data-confobj at the current menu
+        // (d) populate the "add entry from existing menu" picker, grouped by menu
+        var importDom = document.querySelector(".menu_import");
+        if (importDom) {
+            importDom.textContent = "";
+            importDom.appendChild(
+                suo.domCreate2("option", { setName: ["value"], setValue: [""] }, null, null, null, suo.getI18n("menu_import"))
+            );
+            for (var mi = 0; mi < config.menus.length; mi++) {
+                var srcMenu = config.menus[mi];
+                if (!srcMenu.entries || !srcMenu.entries.length) {
+                    continue;
+                }
+                var group = suo.domCreate2("optgroup", {
+                    setName: ["label"],
+                    setValue: [srcMenu.name || srcMenu.id || "" + mi],
+                });
+                for (var ei = 0; ei < srcMenu.entries.length; ei++) {
+                    group.appendChild(
+                        suo.domCreate2(
+                            "option",
+                            { setName: ["value"], setValue: [mi + ":" + ei] },
+                            null,
+                            null,
+                            null,
+                            srcMenu.entries[ei].name || srcMenu.entries[ei].url || ""
+                        )
+                    );
+                }
+                importDom.appendChild(group);
+            }
+            importDom.selectedIndex = 0;
+        }
+        // (e) repoint the entries editor's data-confobj at the current menu
         var confobj = "menus|" + current + "|entries";
         ulDom.setAttribute("data-confobj", confobj);
         set17Dom.setAttribute("data-confobj", confobj);
         suo.showBtnAdd(true, confobj, set17Dom);
-        // (e) render the entries of the current menu
+        // (f) render the entries of the current menu
         suo.initListItem("menuentry");
     },
     createMoreSelect: (type, value, confOBJ) => {
@@ -3156,50 +3201,50 @@ const suo = {
                     .appendChild(suo.domCreate2("div", "", null, null, null, suo.getI18n("n_content_search_engine")));
             }
         } else if (actionType === "menuentry") {
-            console.log("menuentry");
-            //name
+            // Compact rows: short fixed-width label, the field, and a small
+            // description to the right of the field (no long wrapping labels).
+            var menuLabelCss = "display:inline-block;width:80px;vertical-align:top;";
+            var menuDescCss = "font-size:11px;color:#888;margin-left:8px;";
+            var menuField = function (labelKey, inputClass, value, descKey) {
+                domContent.appendChild(
+                    suo.domCreate2(
+                        "label",
+                        { setName: ["className"], setValue: ["box-label"] },
+                        null,
+                        menuLabelCss,
+                        null,
+                        suo.getI18n(labelKey)
+                    )
+                );
+                domContent.appendChild(
+                    suo.domCreate2("input", {
+                        setName: ["className", "type", "value"],
+                        setValue: [inputClass, "text", value || ""],
+                    })
+                );
+                if (descKey) {
+                    domContent.appendChild(
+                        suo.domCreate2(
+                            "span",
+                            { setName: ["className"], setValue: ["menu_field_desc"] },
+                            null,
+                            menuDescCss,
+                            null,
+                            suo.getI18n(descKey)
+                        )
+                    );
+                }
+                domContent.appendChild(suo.domCreate2("br"));
+            };
+            menuField("menu_name", "box_text menu_field_name", confOBJ.name, null);
+            menuField("menu_url", "box_text menu_field_url", confOBJ.url, "menu_url_desc");
+            //mode (select)
             domContent.appendChild(
                 suo.domCreate2(
                     "label",
                     { setName: ["className"], setValue: ["box-label"] },
                     null,
-                    null,
-                    null,
-                    suo.getI18n("menu_name")
-                )
-            );
-            domContent.appendChild(
-                suo.domCreate2("input", {
-                    setName: ["className", "type", "value"],
-                    setValue: ["box_text menu_field_name", "text", !confOBJ.name ? "" : confOBJ.name],
-                })
-            );
-            domContent.appendChild(suo.domCreate2("br"));
-            //url
-            domContent.appendChild(
-                suo.domCreate2(
-                    "label",
-                    { setName: ["className"], setValue: ["box-label"] },
-                    null,
-                    null,
-                    null,
-                    suo.getI18n("menu_url")
-                )
-            );
-            domContent.appendChild(
-                suo.domCreate2("input", {
-                    setName: ["className", "type", "value"],
-                    setValue: ["box_text menu_field_url", "text", !confOBJ.url ? "" : confOBJ.url],
-                })
-            );
-            domContent.appendChild(suo.domCreate2("br"));
-            //mode
-            domContent.appendChild(
-                suo.domCreate2(
-                    "label",
-                    { setName: ["className"], setValue: ["box-label"] },
-                    null,
-                    null,
+                    menuLabelCss,
                     null,
                     suo.getI18n("menu_mode")
                 )
@@ -3213,10 +3258,7 @@ const suo = {
                 modeSelect.appendChild(
                     suo.domCreate2(
                         "option",
-                        {
-                            setName: ["value"],
-                            setValue: [modeOptions[mi]],
-                        },
+                        { setName: ["value"], setValue: [modeOptions[mi]] },
                         null,
                         null,
                         null,
@@ -3227,41 +3269,8 @@ const suo = {
             modeSelect.value = confOBJ.mode || "plain";
             domContent.appendChild(modeSelect);
             domContent.appendChild(suo.domCreate2("br"));
-            //suffix
-            domContent.appendChild(
-                suo.domCreate2(
-                    "label",
-                    { setName: ["className"], setValue: ["box-label"] },
-                    null,
-                    null,
-                    null,
-                    suo.getI18n("menu_suffix")
-                )
-            );
-            domContent.appendChild(
-                suo.domCreate2("input", {
-                    setName: ["className", "type", "value"],
-                    setValue: ["box_text box_destext menu_field_suffix", "text", !confOBJ.suffix ? "" : confOBJ.suffix],
-                })
-            );
-            domContent.appendChild(suo.domCreate2("br"));
-            //icon
-            domContent.appendChild(
-                suo.domCreate2(
-                    "label",
-                    { setName: ["className"], setValue: ["box-label"] },
-                    null,
-                    null,
-                    null,
-                    suo.getI18n("menu_icon")
-                )
-            );
-            domContent.appendChild(
-                suo.domCreate2("input", {
-                    setName: ["className", "type", "value"],
-                    setValue: ["box_text box_destext menu_field_icon", "text", !confOBJ.icon ? "" : confOBJ.icon],
-                })
-            );
+            menuField("menu_suffix", "box_text box_destext menu_field_suffix", confOBJ.suffix, null);
+            menuField("menu_icon", "box_text box_destext menu_field_icon", confOBJ.icon, "menu_icon_desc");
         } else if (actionArray.contains(actionType)) {
             var actionBox = suo.domCreate2("div", {
                 setName: ["className"],
@@ -4691,7 +4700,8 @@ const suo = {
             confobj &&
             confobj.indexOf("script") == -1 &&
             confobj.indexOf("ctm") == -1 &&
-            confobj.indexOf("pop") == -1
+            confobj.indexOf("pop") == -1 &&
+            confobj.indexOf("menus") == -1
         ) {
             dom.appendChild(
                 suo.domCreate2(

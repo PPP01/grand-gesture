@@ -870,10 +870,22 @@
         "message": "Cannot delete the last menu."
     },
     "menu_icon": {
-        "message": "Icon (built-in name, URL, or empty for favicon)"
+        "message": "Icon"
+    },
+    "menu_icon_desc": {
+        "message": "built-in name, URL, or empty for favicon"
+    },
+    "menu_import": {
+        "message": "Add entry from …"
     },
     "menu_match": {
-        "message": "Match (default, manual, or URL patterns)"
+        "message": "Match"
+    },
+    "menu_match_desc": {
+        "message": "default, manual, or URL patterns"
+    },
+    "menu_match_example": {
+        "message": "e.g. *.github.com/*, github.com"
     },
     "menu_mode": {
         "message": "Encoding"
@@ -900,7 +912,10 @@
         "message": "URL suffix"
     },
     "menu_url": {
-        "message": "URL (use %s for the search term)"
+        "message": "URL"
+    },
+    "menu_url_desc": {
+        "message": "use %s for the search term"
     },
     "menumgr": {
         "message": "Menus"
