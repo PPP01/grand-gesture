@@ -860,14 +860,26 @@
     "menu_autosave": {
         "message": "Auto Save Settings"
     },
+    "menu_del": {
+        "message": "Delete menu"
+    },
+    "menu_del_last": {
+        "message": "Cannot delete the last menu."
+    },
     "menu_icon": {
         "message": "Icon (built-in name, URL, or empty for favicon)"
+    },
+    "menu_match": {
+        "message": "Match (default, manual, or URL patterns)"
     },
     "menu_mode": {
         "message": "Encoding"
     },
     "menu_name": {
         "message": "Name"
+    },
+    "menu_new": {
+        "message": "New menu"
     },
     "menu_opts": {
         "message": "Options"
@@ -1051,6 +1063,9 @@
     },
     "n_mail_prefix": {
         "message": "Subject:"
+    },
+    "n_menu": {
+        "message": "Menu:"
     },
     "n_new_position": {
         "message": "Position:"
@@ -1345,6 +1360,9 @@
     },
     "s_audible": {
         "message": "Audible tabs"
+    },
+    "s_auto": {
+        "message": "Auto"
     },
     "s_back": {
         "message": "New tab (background)"

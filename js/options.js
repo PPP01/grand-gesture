@@ -30,6 +30,7 @@ const suo = {
         os: "win",
         sizePos: {},
         menuPin: true,
+        currentMenu: 0,
         boxmove: {},
         sort: [
             [2, 2],
@@ -337,6 +338,35 @@ const suo = {
                 if (ele.classList.contains("exclusion_del")) {
                     suo.exclusionDel(e);
                 }
+                if (ele.classList.contains("menu_new")) {
+                    var _newName = prompt(suo.getI18n("menu_new"));
+                    if (_newName) {
+                        if (!Array.isArray(config.menus)) {
+                            config.menus = [];
+                        }
+                        config.menus.push({
+                            id: "menu_" + Date.now(),
+                            name: _newName,
+                            match: "manual",
+                            entries: [],
+                        });
+                        suo.cons.currentMenu = config.menus.length - 1;
+                        suo.saveConf();
+                        suo.initMenuSection();
+                    }
+                }
+                if (ele.classList.contains("menu_del")) {
+                    if (config.menus && config.menus.length > 1) {
+                        if (confirm(suo.getI18n("menu_del"))) {
+                            config.menus.splice(suo.cons.currentMenu, 1);
+                            suo.cons.currentMenu = 0;
+                            suo.saveConf();
+                            suo.initMenuSection();
+                        }
+                    } else {
+                        suo.showMsgBox(suo.getI18n("menu_del_last"), "warning", 3);
+                    }
+                }
                 break;
             case "mouseup":
                 suo.cons.boxmove.enable = false;
@@ -616,6 +646,33 @@ const suo = {
                 }
                 if (e.target.name && e.target.name == "exclusiontype") {
                     suo.initExclusion();
+                }
+                // --- multi-menu management (Menus section) ---
+                if (e.target.classList.contains("menu_select")) {
+                    suo.cons.currentMenu = +e.target.value;
+                    suo.initMenuSection();
+                }
+                if (e.target.classList.contains("menu_meta_name")) {
+                    if (config.menus && config.menus[suo.cons.currentMenu]) {
+                        config.menus[suo.cons.currentMenu].name = e.target.value;
+                        suo.saveConf();
+                        suo.initMenuSection();
+                    }
+                }
+                if (e.target.classList.contains("menu_meta_match")) {
+                    if (config.menus && config.menus[suo.cons.currentMenu]) {
+                        var _raw = (e.target.value || "").trim();
+                        if (_raw === "default" || _raw === "manual") {
+                            config.menus[suo.cons.currentMenu].match = _raw;
+                        } else {
+                            config.menus[suo.cons.currentMenu].match = _raw
+                                .split(/[\s,]+/)
+                                .filter(function (p) {
+                                    return p;
+                                });
+                        }
+                        suo.saveConf();
+                    }
                 }
                 break;
             case "mouseover":
@@ -1242,6 +1299,11 @@ const suo = {
                 return;
             }
             suo.showBtnAdd(true, setDom.dataset.confobj, setDom);
+            // Menus section: (re)initialize the multi-menu controls. This also
+            // re-runs showBtnAdd against the current menu's data-confobj.
+            if (ele.dataset.id0 == "1" && ele.dataset.id1 == "7") {
+                suo.initMenuSection();
+            }
         } else {
             suo.showBtnAdd(false);
         }
@@ -1319,6 +1381,59 @@ const suo = {
             }, 10);
         }, 400);
     },
+    // Initialize the multi-menu controls in the "Menus" section (set-17).
+    // Keeps the menu <select>, the name/match meta inputs, and the entries
+    // editor's data-confobj all pointed at suo.cons.currentMenu so that
+    // initListItem / itemAddBefore / itemSave / sortable all resolve to the
+    // selected menu.
+    initMenuSection: () => {
+        if (!Array.isArray(config.menus)) {
+            config.menus = [];
+        }
+        // (a) clamp currentMenu to a valid index
+        if (suo.cons.currentMenu < 0 || suo.cons.currentMenu >= config.menus.length) {
+            suo.cons.currentMenu = 0;
+        }
+        var set17Dom = document.querySelector(".set-17");
+        var selDom = document.querySelector(".menu_select");
+        var nameDom = document.querySelector(".menu_meta_name");
+        var matchDom = document.querySelector(".menu_meta_match");
+        var ulDom = document.querySelector(".ul_menuentry");
+        if (!set17Dom || !selDom || !ulDom) {
+            return;
+        }
+        var current = suo.cons.currentMenu;
+        // (b) rebuild the menu <select>
+        selDom.textContent = "";
+        for (var i = 0; i < config.menus.length; i++) {
+            selDom.appendChild(
+                suo.domCreate2(
+                    "option",
+                    { setName: ["value"], setValue: ["" + i] },
+                    null,
+                    null,
+                    null,
+                    config.menus[i].name || config.menus[i].id || "" + i
+                )
+            );
+        }
+        selDom.selectedIndex = current;
+        // (c) populate name/match meta inputs
+        var theMenu = config.menus[current] || {};
+        if (nameDom) {
+            nameDom.value = theMenu.name || "";
+        }
+        if (matchDom) {
+            matchDom.value = Array.isArray(theMenu.match) ? theMenu.match.join(", ") : theMenu.match || "default";
+        }
+        // (d) repoint the entries editor's data-confobj at the current menu
+        var confobj = "menus|" + current + "|entries";
+        ulDom.setAttribute("data-confobj", confobj);
+        set17Dom.setAttribute("data-confobj", confobj);
+        suo.showBtnAdd(true, confobj, set17Dom);
+        // (e) render the entries of the current menu
+        suo.initListItem("menuentry");
+    },
     createMoreSelect: (type, value, confOBJ) => {
         let i = 0;
         console.log(confOBJ);
@@ -1329,7 +1444,36 @@ const suo = {
         };
         var domSelect = suo.domCreate2("select", valueOBJ);
         var index = 0;
-        if (["n_txtengine", "n_imgengine", "n_script"].contains(type)) {
+        if (type == "n_menu") {
+            // first "Auto" (value "auto"), then one option per config.menus
+            // (value = menu.id). The saved value is a menu id (or "auto").
+            domSelect.appendChild(
+                suo.domCreate2(
+                    "option",
+                    { setName: ["value"], setValue: ["auto"] },
+                    null,
+                    null,
+                    null,
+                    suo.getI18n("s_auto")
+                )
+            );
+            var _menus = Array.isArray(config.menus) ? config.menus : [];
+            for (i = 0; i < _menus.length; i++) {
+                domSelect.appendChild(
+                    suo.domCreate2(
+                        "option",
+                        { setName: ["value"], setValue: [_menus[i].id] },
+                        null,
+                        null,
+                        null,
+                        _menus[i].name || _menus[i].id
+                    )
+                );
+                if (value == _menus[i].id) {
+                    index = i + 1;
+                }
+            }
+        } else if (["n_txtengine", "n_imgengine", "n_script"].contains(type)) {
             var type = type.substr(2);
             for (
                 i = 0;
@@ -2316,7 +2460,11 @@ const suo = {
                 actionType = type;
                 break;
             case "menuentry":
-                confOBJ = (config.menus && config.menus[0] && config.menus[0].entries) || [];
+                confOBJ =
+                    (config.menus &&
+                        config.menus[suo.cons.currentMenu] &&
+                        config.menus[suo.cons.currentMenu].entries) ||
+                    [];
                 eleOBJ = {
                     setName: ["className"],
                     setValue: ["item item_edit item_script item-" + type],

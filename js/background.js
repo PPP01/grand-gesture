@@ -2730,7 +2730,19 @@ var sub = {
             await sub.runUserScript(sub.curTab.id, config.general.script.script[_script].content, sub.message?.gesture);
         },
         showmenu: async () => {
-            const menu = sub.resolveMenu(sub.curTab?.url || "");
+            const url = sub.curTab?.url || "";
+            // The "n_menu" select lets the user pin this gesture to a specific
+            // menu by id; "auto" (or unset) falls back to URL-based resolution.
+            // Use config.menus if present, else the bundled defaults (mirror
+            // resolveMenu's source-of-truth).
+            const sel = sub.getConfValue("selects", "n_menu");
+            let menu;
+            if (sel && sel !== "auto") {
+                const menus = Array.isArray(config.menus) ? config.menus : defaultConf.menus || [];
+                menu = menus.find(m => m.id === sel) || sub.resolveMenu(url);
+            } else {
+                menu = sub.resolveMenu(url);
+            }
             if (!menu || !menu.entries || !menu.entries.length) {
                 return;
             }

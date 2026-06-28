@@ -238,7 +238,7 @@ const actions = {
             { name: "extdisable" },
             { name: "mute", selects: ["n_mute"] },
             { name: "magnet" },
-            { name: "showmenu" },
+            { name: "showmenu", selects: ["n_menu"] },
         ],
         [
             //ag_exp
