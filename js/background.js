@@ -1090,6 +1090,11 @@ var sub = {
     },
     init: async () => {
         sub.upgrade.up();
+        // Seed menus for configs that predate the feature (loadConfig does not
+        // merge new default keys). In-memory only; persisted on the first save.
+        if (!Array.isArray(config.menus)) {
+            config.menus = JSON.parse(JSON.stringify(defaultConf.menus || []));
+        }
         sub.initpers();
         sub.initIcon();
         sub.initEvent();
