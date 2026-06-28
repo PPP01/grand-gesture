@@ -1000,10 +1000,17 @@ function renderGestureMenu(data) {
     host = document.createElement("div");
     host.id = "ggGestureMenu";
     host.setAttribute("popover", "auto");
+    // No gesture coordinates (e.g. triggered from the launchpad/icon) -> center.
+    let px = data.x,
+        py = data.y;
+    if ((!px || px <= 0) && (!py || py <= 0)) {
+        px = Math.round(window.innerWidth / 2);
+        py = Math.round(window.innerHeight / 3);
+    }
     force(host, {
         position: "fixed",
-        top: data.y - 30 + "px",
-        left: data.x - 30 + "px",
+        top: Math.max(0, py - 30) + "px",
+        left: Math.max(0, px - 30) + "px",
         right: "auto",
         bottom: "auto",
         margin: "0",
@@ -1082,6 +1089,17 @@ function renderGestureMenu(data) {
 
     document.documentElement.appendChild(host);
     host.showPopover();
+    // Keep it fully inside the viewport.
+    const rect = host.getBoundingClientRect();
+    let nx = Math.max(0, px - 30),
+        ny = Math.max(0, py - 30);
+    if (nx + rect.width > window.innerWidth) {
+        nx = Math.max(0, window.innerWidth - rect.width - 5);
+    }
+    if (ny + rect.height > window.innerHeight) {
+        ny = Math.max(0, window.innerHeight - rect.height - 5);
+    }
+    force(host, { left: nx + "px", top: ny + "px" });
 }
 
 // Renders a small picker listing menu names at the cursor and reports the chosen
@@ -1098,10 +1116,17 @@ function renderMenuPicker(data) {
     const host = document.createElement("div");
     host.id = "ggMenuPicker";
     host.setAttribute("popover", "auto");
+    // No gesture coordinates (e.g. triggered from the launchpad/icon) -> center.
+    let px = data.x,
+        py = data.y;
+    if ((!px || px <= 0) && (!py || py <= 0)) {
+        px = Math.round(window.innerWidth / 2);
+        py = Math.round(window.innerHeight / 3);
+    }
     const styles = {
         position: "fixed",
-        top: data.y - 10 + "px",
-        left: data.x - 10 + "px",
+        top: Math.max(0, py - 10) + "px",
+        left: Math.max(0, px - 10) + "px",
         right: "auto",
         bottom: "auto",
         margin: "0",
@@ -1164,6 +1189,18 @@ function renderMenuPicker(data) {
     });
     document.documentElement.appendChild(host);
     host.showPopover();
+    // Keep it fully inside the viewport.
+    const rect = host.getBoundingClientRect();
+    let nx = Math.max(0, px - 10),
+        ny = Math.max(0, py - 10);
+    if (nx + rect.width > window.innerWidth) {
+        nx = Math.max(0, window.innerWidth - rect.width - 5);
+    }
+    if (ny + rect.height > window.innerHeight) {
+        ny = Math.max(0, window.innerHeight - rect.height - 5);
+    }
+    host.style.setProperty("left", nx + "px", "important");
+    host.style.setProperty("top", ny + "px", "important");
 }
 
 var sub = {
