@@ -1009,6 +1009,27 @@ function renderGestureMenu(data) {
     menuSheet.replaceSync(MENU_CSS);
     shadow.adoptedStyleSheets = [menuSheet];
 
+    // Copy text to the clipboard (for "clipboard"-mode entries, e.g. Gemini, which
+    // can't take a query string). Runs on the click user-gesture; falls back to a
+    // hidden textarea + execCommand when the async Clipboard API is unavailable.
+    function copyToClipboard(text) {
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text);
+                return;
+            }
+        } catch (e) {}
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.cssText = "position:fixed;top:0;left:-9999px;";
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand("copy");
+        } catch (e) {}
+        ta.remove();
+    }
+
     const menu = document.createElement("div");
     menu.className = "menu";
     for (const entry of data.entries) {
@@ -1017,7 +1038,12 @@ function renderGestureMenu(data) {
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         link.textContent = entry.name;
-        link.addEventListener("click", () => window.setTimeout(() => host && host.hidePopover(), 10));
+        link.addEventListener("click", () => {
+            if (entry.copy && data.query) {
+                copyToClipboard(data.query);
+            }
+            window.setTimeout(() => host && host.hidePopover(), 10);
+        });
         if (entry.icon) {
             const img = document.createElement("img");
             img.src = entry.icon;
@@ -1329,9 +1355,14 @@ var sub = {
     },
     // Build the final href for a menu entry. `url` may contain %s (replaced by the
     // encoded term) or, if it does not, the term is appended. `suffix` is appended.
+    // In "clipboard" mode the term is empty: the URL is opened as-is (any %s is
+    // dropped) and the selection is copied to the clipboard instead (see the
+    // renderer), for targets that can't take a query string (e.g. Gemini).
     buildMenuHref: (entry, query) => {
         let term;
-        if (entry.mode === "slug") {
+        if (entry.mode === "clipboard") {
+            term = "";
+        } else if (entry.mode === "slug") {
             term = encodeURIComponent(query.replace(/[^A-Za-z0-9]/gi, "-"));
         } else {
             term = encodeURIComponent(query);
@@ -2695,6 +2726,7 @@ var sub = {
                     name: entry.name,
                     href: sub.buildMenuHref(entry, query),
                     icon: await sub.resolveMenuIcon(entry),
+                    copy: entry.mode === "clipboard",
                 }))
             );
             const gesture = sub.message?.gesture || {};
@@ -2703,7 +2735,7 @@ var sub = {
                 world: chrome.scripting.ExecutionWorld.MAIN,
                 injectImmediately: true,
                 func: renderGestureMenu,
-                args: [{ entries, x: gesture.x || 0, y: gesture.y || 0 }],
+                args: [{ entries, x: gesture.x || 0, y: gesture.y || 0, query }],
             });
         },
         source: () => {
