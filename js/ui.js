@@ -215,7 +215,7 @@ var ui = {
     ],
 };
 var menuModel = {
-    fn: ["general", "mges", "sdrg", "drg", "rges", "wges", "pop", "icon", "ctm", "touch", "dca", "ksa"],
+    fn: ["general", "mges", "sdrg", "drg", "rges", "wges", "pop", "icon", "ctm", "touch", "dca", "ksa", "menus"],
     main: [
         "fnswitch",
         "general",
@@ -231,9 +231,11 @@ var menuModel = {
         "dca",
         "ksa",
         "about",
+        "menus",
     ],
     fnswitch: ["stnm_function"],
-    general: ["setting", /*"fnswitch",*/ "searchmgr", "scriptmgr", "linux", "exclusion", "per", "conf", "menumgr"],
+    general: ["setting", /*"fnswitch",*/ "searchmgr", "scriptmgr", "linux", "exclusion", "per", "conf"],
+    menus: ["menumgr"],
     mges: ["setting", "ui", "gesmgr"],
     sdrg: ["setting", "tsdrg", "lsdrg", "isdrg"],
     drg: ["setting", "ui", "tdrg", "ldrg", "idrg"],

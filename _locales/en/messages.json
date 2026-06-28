@@ -944,6 +944,9 @@
     "menuplus_opennew": {
         "message": "Open in new tab"
     },
+    "menus": {
+        "message": "Mouse Menu"
+    },
     "mergewin": {
         "message": "Merge all windows"
     },

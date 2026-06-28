@@ -41,7 +41,7 @@ const suo = {
             [9, 1],
             [10, 2],
             [12, 1],
-            [1, 7],
+            [14, 0],
         ],
     },
     boxShowFrom: null,
@@ -1267,8 +1267,9 @@ const suo = {
             }
             menuDom.appendChild(menuP);
             menuDom.appendChild(menuUL);
-            //init fnswitch menu
-            if (i > 1 && i < menuModel.main.length - 1) {
+            //init fnswitch menu — gate the feature groups (those in menuModel.fn,
+            // except "general" at index 0); leave non-feature groups (about) shown.
+            if (i > 1 && menuModel.fn.indexOf(menuModel.main[i]) > 0) {
                 var domOBJ = document.querySelector("#m-" + menuModel.main[i]);
                 if (config.general.fnswitch["fn" + menuModel.main[i]]) {
                     domOBJ.style.display = "block";
@@ -1312,7 +1313,7 @@ const suo = {
         }
         if (
             (ele.dataset.id0 == "1" && ele.dataset.id1 == "2") ||
-            (ele.dataset.id0 == "1" && ele.dataset.id1 == "7") ||
+            (ele.dataset.id0 == "14" && ele.dataset.id1 == "0") ||
             (ele.dataset.id0 == "2" && ele.dataset.id1 == "2") ||
             (ele.dataset.id0 == "4" && ele.dataset.id1 == "2") ||
             (ele.dataset.id0 == "4" && ele.dataset.id1 == "3") ||
@@ -1329,7 +1330,7 @@ const suo = {
             suo.showBtnAdd(true, setDom.dataset.confobj, setDom);
             // Menus section: (re)initialize the multi-menu controls. This also
             // re-runs showBtnAdd against the current menu's data-confobj.
-            if (ele.dataset.id0 == "1" && ele.dataset.id1 == "7") {
+            if (ele.dataset.id0 == "14" && ele.dataset.id1 == "0") {
                 suo.initMenuSection();
             }
         } else {
@@ -1409,7 +1410,7 @@ const suo = {
             }, 10);
         }, 400);
     },
-    // Initialize the multi-menu controls in the "Menus" section (set-17).
+    // Initialize the multi-menu controls in the "Mouse Menu" section (set-140).
     // Keeps the menu <select>, the name/match meta inputs, and the entries
     // editor's data-confobj all pointed at suo.cons.currentMenu so that
     // initListItem / itemAddBefore / itemSave / sortable all resolve to the
@@ -1422,7 +1423,7 @@ const suo = {
         if (suo.cons.currentMenu < 0 || suo.cons.currentMenu >= config.menus.length) {
             suo.cons.currentMenu = 0;
         }
-        var set17Dom = document.querySelector(".set-17");
+        var set17Dom = document.querySelector(".set-140");
         var selDom = document.querySelector(".menu_select");
         var nameDom = document.querySelector(".menu_meta_name");
         var matchDom = document.querySelector(".menu_meta_match");
@@ -2396,6 +2397,8 @@ const suo = {
                 suo.initListItem("t" + ele.dataset.confele.substr(2));
                 suo.initListItem("l" + ele.dataset.confele.substr(2));
                 suo.initListItem("i" + ele.dataset.confele.substr(2));
+            } else if (ele.dataset.confele.substr(2) == "menus") {
+                suo.initMenuSection();
             } else {
                 suo.initListItem(ele.dataset.confele.substr(2));
             }

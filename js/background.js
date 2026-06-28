@@ -58,6 +58,7 @@ var getDefault = {
                     fnicon: false,
                     fnctm: false,
                     fndca: false,
+                    fnmenus: true,
                 },
                 engine: {
                     txtengine: [
@@ -1239,6 +1240,10 @@ var sub = {
         // merge new default keys). In-memory only; persisted on the first save.
         if (!Array.isArray(config.menus)) {
             config.menus = JSON.parse(JSON.stringify(defaultConf.menus || []));
+        }
+        // Same for the "Mouse Menu" feature toggle (shown as a top-level entry).
+        if (config.general && config.general.fnswitch && config.general.fnswitch.fnmenus === undefined) {
+            config.general.fnswitch.fnmenus = true;
         }
         sub.initpers();
         sub.initIcon();
