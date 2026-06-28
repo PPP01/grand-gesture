@@ -810,8 +810,22 @@ const loadConfig = async (noInit, type) => {
     if (type === "sync") {
         const items = await chrome.storage.sync.get();
         if (!items.general) {
-            config = getDefault.value();
-            await chrome.storage.sync.set(config);
+            // storage.sync came back empty. This happens when a sync write failed
+            // (e.g. a key exceeded the 8 KB per-item quota, leaving sync.clear()'ed
+            // storage empty) or when the browser does not persist storage.sync
+            // (e.g. Brave). Recover the last good config from the local backup that
+            // saveConf() always writes, before falling back to defaults.
+            const backup = await chrome.storage.local.get("config");
+            if (backup.config && backup.config.general) {
+                config = backup.config;
+            } else {
+                config = getDefault.value();
+            }
+            // Best-effort repopulation of storage.sync; a failure here (e.g. quota)
+            // must not abort startup, since the local backup is the source of truth.
+            try {
+                await chrome.storage.sync.set(config);
+            } catch {}
         } else {
             config = items;
         }
@@ -3002,21 +3016,29 @@ var sub = {
     saveConf: async (noInit, sendResponse) => {
         const _isSync = config.general.sync.autosync && chrome.storage.sync;
         if (_isSync) {
-            await chrome.storage.local.set({ sync: "true" });
-            await chrome.storage.sync.clear();
-            await chrome.storage.sync.set(config);
-            if (chrome.runtime.lastError) {
+            // Always keep a local backup of the full config. storage.local is
+            // reliable and unlimited here (manifest grants "unlimitedStorage"),
+            // whereas storage.sync can fail silently (8 KB per-item quota) or not
+            // persist at all (e.g. Brave). loadConfig() recovers from this backup
+            // when storage.sync comes back empty, so settings survive regardless.
+            await chrome.storage.local.set({ sync: "true", config });
+            let syncError;
+            try {
+                await chrome.storage.sync.clear();
+                await chrome.storage.sync.set(config);
+            } catch (error) {
+                syncError = error;
+            }
+            const lastError = chrome.runtime.lastError || syncError;
+            if (lastError) {
                 sub.showNotif(
                     "basic",
                     sub.getI18n("notif_title_conferr"),
-                    sub.getI18n("msg_conferr0") +
-                        "\n" +
-                        chrome.runtime.lastError.message +
-                        "\n" +
-                        sub.getI18n("msg_conferr1")
+                    sub.getI18n("msg_conferr0") + "\n" + lastError.message + "\n" + sub.getI18n("msg_conferr1")
                 );
-                sub.cons.lastErr = chrome.runtime.lastError.message;
-                await chrome.storage.sync.set(sub.cons.lastConf);
+                sub.cons.lastErr = lastError.message;
+                // No need to restore the old sync data: the local backup above is
+                // the source of truth and loadConfig() will read it back.
                 await loadConfig();
                 await chrome.runtime.sendMessage({ type: "confErr", lastErr: sub.cons.lastErr });
             } else {
