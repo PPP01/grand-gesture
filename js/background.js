@@ -1357,19 +1357,60 @@ var sub = {
         return url + (entry.suffix || "");
     },
     // Resolve a menu entry's icon to something an <img src> can use. A MENU_ICONS
-    // key becomes a CSP-safe data: URI; an http(s)/data: value is used as-is;
-    // anything else (incl. empty) yields "" (no icon). Favicon auto-resolution is
-    // a later phase.
-    resolveMenuIcon: entry => {
+    // key becomes a CSP-safe data: URI; an http(s)/data: value is used as-is; an
+    // empty icon falls back to the target site's favicon (fetched + cached as a
+    // data: URI by sub.fetchFavicon).
+    resolveMenuIcon: async entry => {
         const icon = entry.icon || "";
         if (!icon) {
-            return "";
+            return await sub.fetchFavicon(entry.url);
         }
         if (/^(https?:|data:)/.test(icon)) {
             return icon;
         }
         const data = typeof MENU_ICONS !== "undefined" ? MENU_ICONS[icon] : null;
         return data ? "data:image/svg+xml;base64," + data : "";
+    },
+    // Fetch the favicon for a target URL's host and return it as a CSP-safe data:
+    // URI (so it loads even on strict img-src pages). Cached per host. Fetched in
+    // the background (not the page) via DuckDuckGo's icon service; a short timeout
+    // keeps a slow/missing favicon from delaying the menu (then: no icon).
+    fetchFavicon: async targetUrl => {
+        let host;
+        try {
+            host = new URL(targetUrl).hostname;
+        } catch {
+            return "";
+        }
+        if (!host) {
+            return "";
+        }
+        sub.cons.faviconCache = sub.cons.faviconCache || {};
+        if (sub.cons.faviconCache[host] !== undefined) {
+            return sub.cons.faviconCache[host];
+        }
+        let dataUri = "";
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 2500);
+            const response = await fetch(`https://icons.duckduckgo.com/ip3/${host}.ico`, {
+                signal: controller.signal,
+            });
+            clearTimeout(timer);
+            if (response.ok) {
+                const bytes = new Uint8Array(await response.arrayBuffer());
+                let binary = "";
+                for (let i = 0; i < bytes.length; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                const type = response.headers.get("content-type") || "image/x-icon";
+                dataUri = `data:${type};base64,${btoa(binary)}`;
+            }
+        } catch {
+            // network error / timeout / abort -> no icon
+        }
+        sub.cons.faviconCache[host] = dataUri;
+        return dataUri;
     },
     getId: async value => {
         var theId = [];
@@ -2663,11 +2704,13 @@ var sub = {
                 return;
             }
             const query = (sub.message?.selEle?.txt || "").trim().replace(/[\r\n]+/g, " ");
-            const entries = menu.entries.map(entry => ({
-                name: entry.name,
-                href: sub.buildMenuHref(entry, query),
-                icon: sub.resolveMenuIcon(entry),
-            }));
+            const entries = await Promise.all(
+                menu.entries.map(async entry => ({
+                    name: entry.name,
+                    href: sub.buildMenuHref(entry, query),
+                    icon: await sub.resolveMenuIcon(entry),
+                }))
+            );
             const gesture = sub.message?.gesture || {};
             await chrome.scripting.executeScript({
                 target: { tabId: sub.curTab.id },
