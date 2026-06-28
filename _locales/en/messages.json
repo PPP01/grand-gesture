@@ -860,6 +860,9 @@
     "menu_autosave": {
         "message": "Auto Save Settings"
     },
+    "menu_clone": {
+        "message": "Clone menu"
+    },
     "menu_del": {
         "message": "Delete menu"
     },

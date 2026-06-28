@@ -355,6 +355,21 @@ const suo = {
                         suo.initMenuSection();
                     }
                 }
+                if (ele.classList.contains("menu_clone")) {
+                    if (config.menus && config.menus[suo.cons.currentMenu]) {
+                        var _src = config.menus[suo.cons.currentMenu];
+                        var _cloneName = prompt(suo.getI18n("menu_clone"), (_src.name || "") + " copy");
+                        if (_cloneName) {
+                            var _clone = JSON.parse(JSON.stringify(_src));
+                            _clone.id = "menu_" + Date.now();
+                            _clone.name = _cloneName;
+                            config.menus.push(_clone);
+                            suo.cons.currentMenu = config.menus.length - 1;
+                            suo.saveConf();
+                            suo.initMenuSection();
+                        }
+                    }
+                }
                 if (ele.classList.contains("menu_del")) {
                     if (config.menus && config.menus.length > 1) {
                         if (confirm(suo.getI18n("menu_del"))) {
