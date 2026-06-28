@@ -1303,12 +1303,20 @@ var sub = {
     // on the details page; earlier: developer mode). When it is unavailable we show
     // a hint and fall back to the previous eval-in-MAIN-world injection (which still
     // works on non-strict pages).
-    runUserScript: async (tabId, code) => {
+    runUserScript: async (tabId, code, gesture) => {
+        // Expose the gesture end point so scripts can place UI at the cursor
+        // without waiting for a (possibly synthetic 0,0) mousemove. `gesture.x`/`y`
+        // are viewport coords (clientX/clientY, for position:fixed); pageX/pageY are
+        // document-relative. Always defined (defaults to 0) so scripts can rely on
+        // it. JSON.stringify keeps the injected literal safe.
+        const g = gesture || {};
+        const context = { x: g.x || 0, y: g.y || 0, pageX: g.pageX || 0, pageY: g.pageY || 0 };
+        const finalCode = `const gesture = Object.freeze(${JSON.stringify(context)});\n${code}`;
         if (chrome.userScripts && typeof chrome.userScripts.execute === "function") {
             try {
                 await chrome.userScripts.execute({
                     target: { tabId },
-                    js: [{ code }],
+                    js: [{ code: finalCode }],
                     world: "USER_SCRIPT",
                     injectImmediately: true,
                 });
@@ -1325,7 +1333,7 @@ var sub = {
         // fall back to eval in the MAIN world (works on pages without a strict CSP).
         sub.showUserScriptsHint(tabId);
         await chrome.scripting.executeScript({
-            args: [code],
+            args: [finalCode],
             func: script => eval(script),
             injectImmediately: true,
             target: { tabId },
@@ -2418,7 +2426,7 @@ var sub = {
         },
         script: async () => {
             var _script = sub.getConfValue("selects", "n_script");
-            await sub.runUserScript(sub.curTab.id, config.general.script.script[_script].content);
+            await sub.runUserScript(sub.curTab.id, config.general.script.script[_script].content, sub.message?.gesture);
         },
         source: () => {
             var theTarget = sub.getConfValue("selects", "n_optype"),
@@ -4586,7 +4594,8 @@ var sub = {
         },
         jslist: {
             jsRun: async message => {
-                await sub.runUserScript(sub.curTab.id, config.general.script.script[message.value].content);
+                // jslist runs from the app UI, so there is no gesture end point.
+                await sub.runUserScript(sub.curTab.id, config.general.script.script[message.value].content, message?.gesture);
             },
         },
         appslist: {

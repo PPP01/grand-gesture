@@ -34,6 +34,17 @@ var sue = {
             console.log = () => {};
         }
     },
+    // Last known cursor position (the gesture end point). Passed along with every
+    // action so the background can hand it to custom JS, which can then place its
+    // UI at the cursor without waiting for a (possibly synthetic 0,0) mousemove.
+    // _lastX/_lastY are viewport coordinates (clientX/clientY); pageX/pageY add the
+    // scroll offset for document-relative positioning.
+    gesturePos: () => ({
+        x: sue._lastX || 0,
+        y: sue._lastY || 0,
+        pageX: (sue._lastX || 0) + (window.scrollX || 0),
+        pageY: (sue._lastY || 0) + (window.scrollY || 0),
+    }),
     init: () => {
         !devMode && (console.log = () => {});
 
@@ -127,6 +138,7 @@ var sue = {
                         type: "action_wges",
                         sendValue: sendValue,
                         selEle: sue.selEle,
+                        gesture: sue.gesturePos(),
                     });
                     // e.preventDefault();
                 }
@@ -207,7 +219,7 @@ var sue = {
                     };
                     chrome.runtime.sendMessage(
                         extID,
-                        { type: "action_rges", sendValue: sendValue, selEle: sue.selEle },
+                        { type: "action_rges", sendValue: sendValue, selEle: sue.selEle, gesture: sue.gesturePos() },
                         response => {}
                     );
                 }
@@ -371,6 +383,7 @@ var sue = {
                         type: "action_dca",
                         sendValue: sendValue,
                         selEle: sue.selEle,
+                        gesture: sue.gesturePos(),
                     });
                 }
                 break;
@@ -411,7 +424,11 @@ var sue = {
                     key.codes.toString() == config.ksa.actions[i].codes.toString()
                 ) {
                     var selEle = { txt: window.getSelection().toString() };
-                    chrome.runtime.sendMessage(extID, { type: "action_ksa", selEle: selEle, id: i }, response => {});
+                    chrome.runtime.sendMessage(
+                        extID,
+                        { type: "action_ksa", selEle: selEle, id: i, gesture: sue.gesturePos() },
+                        response => {}
+                    );
                     break;
                 }
             }
@@ -1172,6 +1189,7 @@ var sue = {
                     direct: dir,
                     drawType: sue.drawType,
                     selEle: sue.selEle,
+                    gesture: sue.gesturePos(),
                 });
                 sue.getedConf = response;
                 if (response) {
