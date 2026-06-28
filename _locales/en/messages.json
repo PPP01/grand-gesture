@@ -1649,6 +1649,9 @@
     "shorturl": {
         "message": "Short URL"
     },
+    "showmenu": {
+        "message": "Open search menu"
+    },
     "snap": {
         "message": "Snap window"
     },

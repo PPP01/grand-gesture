@@ -1,5 +1,6 @@
 importScripts("./purify.js");
 importScripts("./gbk.js");
+importScripts("./menu-icons.js");
 
 const devMode = false;
 let config, defaultConf, _SYNC, browserType, timerSaveConf;
@@ -644,6 +645,33 @@ var getDefault = {
                     },
                 ],
             },
+            // Popup "open in / search" menus shown at the cursor by the "showmenu"
+            // action. `match`: "default" (used on every site when nothing else
+            // matches), "manual" (only when bound explicitly), or an array of URL
+            // globs for site-specific menus. Entry `url` uses %s for the search
+            // term; `mode`: "plain" | "plus" (%20->+) | "slug" (term as a-z-dashes).
+            // `icon`: a key from MENU_ICONS, or a full http(s)/data: URL.
+            menus: [
+                {
+                    id: "default",
+                    name: "Standard",
+                    match: "default",
+                    entries: [
+                        { name: "Google", icon: "google", url: "https://www.google.de/search?q=%s", mode: "plain" },
+                        { name: "Amazon", icon: "amazon", url: "https://www.amazon.de/s?ie=UTF8&tag=dpdesign&index=blended&link_code=qs&field-keywords=%s", mode: "plus" },
+                        { name: "Ebay", icon: "ebay", url: "https://www.ebay.de/sch/i.html?_nkw=%s", mode: "plus" },
+                        { name: "Geizhals", icon: "geizhals", url: "https://geizhals.de/?fs=%s", mode: "plus", suffix: "&hloc=de" },
+                        { name: "Idealo", icon: "idealo", url: "https://www.idealo.de/preisvergleich/MainSearchProductCategory.html?q=%s", mode: "plus" },
+                        { name: "DeepL", icon: "language", url: "https://www.deepl.com/translator#en/de/%s", mode: "plain" },
+                        { name: "Wikipedia", icon: "magnifying-glass", url: "https://de.wikipedia.org/wiki/Spezial:Suche?search=%s", mode: "plain" },
+                        { name: "Google Bildersuche", icon: "google-photos", url: "https://www.google.de/images?q=%s", mode: "plain" },
+                        { name: "Bing", icon: "bing", url: "https://www.bing.com/search?q=%s", mode: "plain" },
+                        { name: "Günstiger", icon: "sack-dollar", url: "https://www.guenstiger.de/Katalog/Suche/%s", mode: "slug", suffix: ".html" },
+                        { name: "Google Maps", icon: "google-maps", url: "https://maps.google.de/maps?hl=de&um=1&ie=UTF-8&sa=N&tab=vl&q=%s", mode: "plain" },
+                        { name: "Kleinanzeigen", icon: "kleinanzeigen", url: "https://www.kleinanzeigen.de/s-50937/%s", mode: "slug", suffix: "/k0l18675r50" },
+                    ],
+                },
+            ],
             touch: {
                 settings: {
                     txttourl: true,
@@ -898,6 +926,138 @@ var appConfmodel = {
     },
 };
 
+// Renders the cursor popup menu inside the page. Injected via
+// chrome.scripting.executeScript({ func, world: MAIN }) — it must be fully
+// self-contained (no references outside its `data` argument). Adapted from the
+// hardened standalone open-in-x.js: Popover API (top layer + light dismiss),
+// closed Shadow DOM and `all: initial` isolate it from the page; no eval, so it
+// is not blocked by a strict CSP. `data` = { entries:[{name,href,icon}], x, y }.
+function renderGestureMenu(data) {
+    "use strict";
+    const CLOSE_AFTER_MS = 15000;
+    const MENU_CSS = `
+        .menu {
+            all: initial;
+            display: block;
+            width: 150px;
+            background: #fff;
+            border: 3px solid #C1C1C1;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,.6);
+            padding: 1px;
+            text-align: left;
+            font: normal 13px Arial;
+            color: #000;
+        }
+        .menu a {
+            all: initial;
+            display: flex;
+            align-items: center;
+            font: normal 13px Arial;
+            line-height: 1.3;
+            color: #000;
+            padding: 3px;
+            margin: 0;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .menu a:hover { background: #235BD9; color: #fff; }
+        .menu img { width: 20px; height: 20px; margin-right: 5px; }
+    `;
+    let host = null;
+    let backdropSheet = null;
+    let closeTimer = 0;
+
+    // Inline !important beats even the page's !important rules.
+    function force(el, styles) {
+        for (const [prop, value] of Object.entries(styles)) {
+            el.style.setProperty(prop, value, "important");
+        }
+    }
+    function close() {
+        window.clearTimeout(closeTimer);
+        if (backdropSheet) {
+            document.adoptedStyleSheets = document.adoptedStyleSheets.filter(sheet => sheet !== backdropSheet);
+            backdropSheet = null;
+        }
+        if (host) {
+            host.remove();
+            host = null;
+        }
+    }
+    // Auto-close once the cursor leaves the menu (cancelled while it is inside).
+    function scheduleClose() {
+        window.clearTimeout(closeTimer);
+        closeTimer = window.setTimeout(() => host && host.hidePopover(), CLOSE_AFTER_MS);
+    }
+
+    // Drop a stale instance from a previous trigger.
+    const existing = document.getElementById("ggGestureMenu");
+    if (existing) {
+        existing.remove();
+    }
+
+    host = document.createElement("div");
+    host.id = "ggGestureMenu";
+    host.setAttribute("popover", "auto");
+    force(host, {
+        position: "fixed",
+        top: data.y - 30 + "px",
+        left: data.x - 30 + "px",
+        right: "auto",
+        bottom: "auto",
+        margin: "0",
+        padding: "0",
+        border: "none",
+        background: "transparent",
+        width: "auto",
+        height: "auto",
+        "max-width": "none",
+        "max-height": "none",
+        overflow: "visible",
+        visibility: "visible",
+    });
+
+    const shadow = host.attachShadow({ mode: "closed" });
+    const menuSheet = new CSSStyleSheet();
+    menuSheet.replaceSync(MENU_CSS);
+    shadow.adoptedStyleSheets = [menuSheet];
+
+    const menu = document.createElement("div");
+    menu.className = "menu";
+    for (const entry of data.entries) {
+        const link = document.createElement("a");
+        link.href = entry.href;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = entry.name;
+        link.addEventListener("click", () => window.setTimeout(() => host && host.hidePopover(), 10));
+        if (entry.icon) {
+            const img = document.createElement("img");
+            img.src = entry.icon;
+            img.alt = "";
+            link.prepend(img);
+        }
+        menu.appendChild(link);
+    }
+    menu.addEventListener("mouseenter", () => window.clearTimeout(closeTimer));
+    menu.addEventListener("mouseleave", scheduleClose);
+    shadow.appendChild(menu);
+
+    backdropSheet = new CSSStyleSheet();
+    backdropSheet.replaceSync("#ggGestureMenu::backdrop { background: rgba(0,0,0,.3); }");
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, backdropSheet];
+
+    host.addEventListener("toggle", event => {
+        if (event.newState === "closed") {
+            close();
+        }
+    });
+
+    document.documentElement.appendChild(host);
+    host.showPopover();
+}
+
 var sub = {
     getCurrentTabId: async () => {
         return sub.curTab?.id ?? (await chrome.tabs.query({ active: true, currentWindow: true }))?.[0]?.id;
@@ -1146,6 +1306,65 @@ var sub = {
             }
         }
         return _data;
+    },
+    // --- "showmenu" action helpers ---------------------------------------------
+    // Pick the menu for a URL: first site-specific menu whose globs match, else
+    // the "default" menu (used everywhere), else the first menu. ("manual" menus
+    // only ever match an explicit binding, which is handled in a later phase.)
+    resolveMenu: url => {
+        // Fall back to the bundled default menus when config.menus is absent —
+        // existing users' stored configs predate this key (loadConfig does not
+        // merge in new default keys). An explicit (possibly empty) array from the
+        // editor is respected as-is.
+        const menus = Array.isArray(config.menus) ? config.menus : defaultConf.menus || [];
+        for (const menu of menus) {
+            if (Array.isArray(menu.match) && menu.match.some(pattern => sub.globMatch(pattern, url))) {
+                return menu;
+            }
+        }
+        return menus.find(menu => menu.match === "default") || menus[0] || null;
+    },
+    // Match a "*"-glob pattern against a full URL.
+    globMatch: (pattern, url) => {
+        const regex = pattern
+            .split("*")
+            .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+            .join(".*");
+        try {
+            return new RegExp("^" + regex + "$", "i").test(url);
+        } catch {
+            return false;
+        }
+    },
+    // Build the final href for a menu entry. `url` may contain %s (replaced by the
+    // encoded term) or, if it does not, the term is appended. `suffix` is appended.
+    buildMenuHref: (entry, query) => {
+        let term;
+        if (entry.mode === "slug") {
+            term = encodeURIComponent(query.replace(/[^A-Za-z0-9]/gi, "-"));
+        } else {
+            term = encodeURIComponent(query);
+            if (entry.mode === "plus") {
+                term = term.replace(/%20/g, "+");
+            }
+        }
+        const url = entry.url.includes("%s") ? entry.url.replace(/%s/g, term) : entry.url + term;
+        return url + (entry.suffix || "");
+    },
+    // Resolve a menu entry's icon to something an <img src> can use. A MENU_ICONS
+    // key becomes a CSP-safe data: URI; an http(s)/data: value is used as-is;
+    // anything else (incl. empty) yields "" (no icon). Favicon auto-resolution is
+    // a later phase.
+    resolveMenuIcon: entry => {
+        const icon = entry.icon || "";
+        if (!icon) {
+            return "";
+        }
+        if (/^(https?:|data:)/.test(icon)) {
+            return icon;
+        }
+        const data = typeof MENU_ICONS !== "undefined" ? MENU_ICONS[icon] : null;
+        return data ? "data:image/svg+xml;base64," + data : "";
     },
     getId: async value => {
         var theId = [];
@@ -2432,6 +2651,26 @@ var sub = {
         script: async () => {
             var _script = sub.getConfValue("selects", "n_script");
             await sub.runUserScript(sub.curTab.id, config.general.script.script[_script].content, sub.message?.gesture);
+        },
+        showmenu: async () => {
+            const menu = sub.resolveMenu(sub.curTab?.url || "");
+            if (!menu || !menu.entries || !menu.entries.length) {
+                return;
+            }
+            const query = (sub.message?.selEle?.txt || "").trim().replace(/[\r\n]+/g, " ");
+            const entries = menu.entries.map(entry => ({
+                name: entry.name,
+                href: sub.buildMenuHref(entry, query),
+                icon: sub.resolveMenuIcon(entry),
+            }));
+            const gesture = sub.message?.gesture || {};
+            await chrome.scripting.executeScript({
+                target: { tabId: sub.curTab.id },
+                world: chrome.scripting.ExecutionWorld.MAIN,
+                injectImmediately: true,
+                func: renderGestureMenu,
+                args: [{ entries, x: gesture.x || 0, y: gesture.y || 0 }],
+            });
         },
         source: () => {
             var theTarget = sub.getConfValue("selects", "n_optype"),
