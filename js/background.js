@@ -1587,7 +1587,12 @@ var sub = {
     // Show the menu-name picker at the cursor (ISOLATED world so it can message
     // back). `action` decides what the picked menu does: "assignsite" or "show".
     showMenuPicker: async (action, title) => {
-        const menus = Array.isArray(config.menus) ? config.menus : defaultConf.menus || [];
+        let menus = Array.isArray(config.menus) ? config.menus : defaultConf.menus || [];
+        // The default menu applies whenever nothing else matches, so assigning a
+        // site to it is pointless — leave it out of the "assign site" picker.
+        if (action === "assignsite") {
+            menus = menus.filter(menu => menu.match !== "default");
+        }
         if (!menus.length || !sub.curTab) {
             return;
         }
