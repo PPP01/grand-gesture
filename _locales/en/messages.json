@@ -1202,6 +1202,9 @@
     "notif_title_update": {
         "message": "Update notification"
     },
+    "notif_userscripts_disabled": {
+        "message": "To run custom scripts on every site, open this extension's details page (e.g. brave://extensions or chrome://extensions) and turn on \"Allow user scripts\"."
+    },
     "numc": {
         "message": "Numeral systen converter"
     },
